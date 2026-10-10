@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>函館旅のしおり 2026</title>
-<meta name="app-version" content="2026-10-10-v9-static">
+<meta name="app-version" content="2026-10-10-v10-no-flicker">
 <style>
 :root{
   --navy:#102a4f; --navy2:#17365e; --ink:#25211c; --paper:#f4ead2; --paper2:#fff8e8;
@@ -436,8 +436,31 @@ async function putPhoto(p){
 }
 async function deletePhoto(id){await remote('delete_photo',{id})}
 function fileToDataUrl(file,max=1600){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{try{let w=im.width,h=im.height,scale=Math.min(1,max/Math.max(w,h));w=Math.round(w*scale);h=Math.round(h*scale);const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');if(!ctx)throw new Error('canvas_context_unavailable');ctx.drawImage(im,0,0,w,h);const data=c.toDataURL('image/jpeg',.82);if(!String(data).startsWith('data:image/jpeg;base64,'))throw new Error('jpeg_encode_failed');resolve(data)}catch(err){reject(err)}};im.onerror=()=>reject(new Error('image_decode_failed'));im.src=fr.result};fr.onerror=()=>reject(fr.error||new Error('file_read_failed'));fr.readAsDataURL(file)})}
-async function refreshPhotos(){try{photos=(await allPhotos()).sort((a,b)=>(b.created||0)-(a.created||0));renderDayPhotos();if(view==='album')renderAlbum()}catch(e){toast('写真を読み込めませんでした')}}
-function photoEl(p,list){const d=document.createElement('button');d.className='photo';d.type='button';const img=document.createElement('img');img.src=p.data;const cap=document.createElement('span');cap.textContent=p.caption||DAYS.find(x=>x.id===p.day)?.jp||'';d.append(img,cap);d.onclick=()=>openLb(p,list);return d}
+let photoListSignature=null,photoUrlsUpdatedAt=0;
+async function refreshPhotos(){
+  try{
+    const incoming=(await allPhotos()).sort((a,b)=>(b.created||0)-(a.created||0));
+    // Signed URLs are reissued on every poll. They are not photo-content changes.
+    const signature=JSON.stringify(incoming.map(p=>[p.id,p.day,p.caption||'',p.created||0]));
+    const changed=signature!==photoListSignature;
+    const renewUrls=Date.now()-photoUrlsUpdatedAt>50*60*1000; // URLs are valid for 60 minutes.
+    if(!changed&&!renewUrls)return;
+    const previous=new Map(photos.map(p=>[p.id,p]));
+    photos=incoming.map(p=>{
+      const old=previous.get(p.id);
+      if(!old)return p;
+      if(!renewUrls&&old.data) p.data=old.data;
+      Object.assign(old,p); // Preserve objects held by photo buttons/lightbox.
+      return old;
+    });
+    photoListSignature=signature;
+    if(renewUrls)photoUrlsUpdatedAt=Date.now();
+    // Keep the existing image elements (and their loaded pixels) on unchanged polls.
+    // URL renewal alone should never rebuild an image grid.
+    if(changed){renderDayPhotos();if(view==='album')renderAlbum()}
+  }catch(e){toast('写真を読み込めませんでした')}
+}
+function photoEl(p,list){const d=document.createElement('button');d.className='photo';d.type='button';const img=document.createElement('img');img.src=p.data;img.onerror=()=>{if(img.src!==p.data)img.src=p.data};const cap=document.createElement('span');cap.textContent=p.caption||DAYS.find(x=>x.id===p.day)?.jp||'';d.append(img,cap);d.onclick=()=>openLb(p,list);return d}
 function renderDayPhotos(){const list=photos.filter(p=>p.day===cur),g=$('#dayPhotoGrid');g.innerHTML='';list.slice(0,6).forEach(p=>g.append(photoEl(p,list)));$('#photoEmpty').classList.toggle('hidden',list.length>0);$('#photoCount').textContent=list.length?`${list.length}枚`:''}
 $('#dayFile').onchange=async e=>{const files=[...e.target.files].slice(0,12);let ok=0,failed=0,lastError='';for(const f of files){try{const data=await fileToDataUrl(f);const p={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),day:cur,caption:'',data,created:Date.now()+Math.random()};await putPhoto(p);ok++}catch(err){failed++;lastError=err&&err.message?err.message:String(err||'')}}e.target.value='';await refreshPhotos();if(ok&&failed)toast(`写真を${ok}枚追加、${failed}枚失敗しました`);else if(ok)toast(`写真を${ok}枚追加しました`);else if(failed)toast(`写真を保存できませんでした${lastError?'：'+lastError:''}`)};
 function renderAlbum(){const fs=$('#albumFilters');fs.innerHTML='';[['all','すべて'],...DAYS.map(d=>[d.id,d.jp.slice(0,5)])].forEach(([id,label])=>{const b=document.createElement('button');b.className='filter '+(albumFilter===id?'active':'');b.textContent=label;b.onclick=()=>{albumFilter=id;renderAlbum()};fs.append(b)});const list=albumFilter==='all'?photos:photos.filter(p=>p.day===albumFilter),g=$('#albumGrid');g.innerHTML='';if(!list.length){g.innerHTML='<div class="empty" style="grid-column:1/-1">まだ写真がありません。</div>';return}list.forEach(p=>g.append(photoEl(p,list)))}
