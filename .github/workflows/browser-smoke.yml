@@ -1,0 +1,47 @@
+name: Browser smoke (album sync and navigation)
+on:
+  push:
+    paths:
+      - "index.html"
+      - "tests/album-poll.e2e.js"
+      - ".github/workflows/browser-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare isolated browser test
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          src=Path('index.html').read_text()
+          assert '<script>' in src
+          src=src.replace('<script>', '<script src="/album-poll.e2e.js"></script><script>', 1)
+          Path('.e2e').mkdir(exist_ok=True)
+          Path('.e2e/index.html').write_text(src)
+          shutil.copyfile('tests/album-poll.e2e.js','.e2e/album-poll.e2e.js')
+          PY
+      - name: Run actual headless Chrome UI and polling regression
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8765 --directory .e2e > /tmp/hakodate-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:8765/ > /dev/null 2>&1; then break; fi
+            sleep 0.2
+          done
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          "$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --virtual-time-budget=6000 --dump-dom http://127.0.0.1:8765/ > /tmp/hakodate-dom.html 2>/tmp/hakodate-chrome.log
+          grep -o 'id="album-e2e-result">[^<]*' /tmp/hakodate-dom.html | head -1 || true
+          if ! grep -q 'data-album-test="PASS"' /tmp/hakodate-dom.html; then
+            echo "Real Chrome album regression failed"
+            tail -20 /tmp/hakodate-chrome.log
+            exit 1
+          fi
