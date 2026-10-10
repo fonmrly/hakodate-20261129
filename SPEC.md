@@ -94,11 +94,13 @@
 - `hakodate_trip_202611.photos`
 - Storage `hakodate-trip-202611`
 
-## 7. 現在の既知課題
+## 7. 現在の状態
 
-- **画像アップロードが動作しない可能性がある**。最優先で再現・原因特定・修正する。
-- GitHub Pages の正式運用は新repo移行後に確立する。
-- 現行Edge Functionのproduction deploymentは、このpublic repoへ秘密値を出さないため、repo側ソースでは合言葉／セッショントークンを環境変数化している。
+- 2026-10-10 に Sol OL / Codex で画像アップロード障害をデバッグし、launcher と APP のグローバル `const API` 再宣言、および canvas 例外時に upload request へ進まない問題を修正した。
+- production相当の実Supabaseで state save/get、JPEG/PNG/WebP の Storage upload、metadata、signed URL、list、caption更新、delete を実施してPASS。
+- 本番テスト用データは終了後に削除済み。DB row / Storage object / state marker がすべて0件であることを確認済み。
+- GitHub Pages の正式公開設定はrepository側のPages有効化後に利用する。
+- production Edge Functionの秘密値をpublic repoへ出さないため、repo側ソースでは合言葉／セッショントークンを環境変数化している。
 
 ## 8. デバッグ／受入条件
 
