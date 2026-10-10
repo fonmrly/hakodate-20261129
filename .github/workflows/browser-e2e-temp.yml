@@ -112,5 +112,10 @@ jobs:
           done
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           "$CHROME" --headless=new --no-sandbox --disable-gpu --virtual-time-budget=4000 --dump-dom http://127.0.0.1:8765/ > /tmp/hakodate-e2e-dom.html
+          echo "---- E2E RESULT ----"
+          grep -o 'id="e2e-result"[^>]*>[^<]*' /tmp/hakodate-e2e-dom.html || true
+          echo "---- BODY MARKER ----"
+          grep -o 'data-e2e-result="[^"]*"' /tmp/hakodate-e2e-dom.html || true
+          echo "---- END DEBUG ----"
           grep 'data-e2e-result="PASS"' /tmp/hakodate-e2e-dom.html
           grep 'id="e2e-result">PASS' /tmp/hakodate-e2e-dom.html
