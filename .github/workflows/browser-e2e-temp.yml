@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/browser-e2e-temp.yml"
+      - "index.html"
 
 permissions:
   contents: read
