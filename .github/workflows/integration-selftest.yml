@@ -1,0 +1,31 @@
+name: Hakodate integration selftest
+on:
+  push:
+    paths:
+      - ".github/workflows/integration-selftest.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call production Edge selftest
+        shell: bash
+        run: |
+          set -euo pipefail
+          resp="$(curl -fsS             -X POST             -H 'content-type: application/json'             -H 'x-selftest-token: hk-selftest-20261010-8f96a2d1'             --data '{"action":"selftest"}'             'https://bvmumhpylsllbvhvymns.supabase.co/functions/v1/hakodate-trip-202611')"
+          echo "$resp"
+          python3 - "$resp" <<'PY'
+import json, sys
+data=json.loads(sys.argv[1])
+assert data.get("ok") is True, data
+assert data.get("cleanup_ok") is True, data
+steps=data.get("steps") or []
+assert any("state save/get PASS" in s for s in steps), steps
+assert any("jpeg/png/webp storage + metadata + signed URL PASS" in s for s in steps), steps
+assert any("photo list PASS" in s for s in steps), steps
+assert any("caption update PASS" in s for s in steps), steps
+assert any("photo delete PASS" in s for s in steps), steps
+PY
