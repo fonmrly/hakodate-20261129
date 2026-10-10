@@ -18,10 +18,12 @@ button{border:0;border-radius:12px;background:var(--navy);color:white;padding:12
 <body><main class="card"><section class="art"><h1>函館旅のしおり</h1><p class="sub">2026.11.28 — 11.30<br>のんびり函館 × ゴールデンカムイ気分</p></section>
 <section class="form"><form id="f"><label for="p">旅の仲間の合言葉（日本語OK）</label><div class="row"><input id="p" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="おいしい…" required><button id="b">ひらく</button></div><p class="msg" id="m"></p></form><p class="note">予定・食事・旅費・写真は2人の端末で共有されます。</p></section></main>
 <script>
+(()=>{
 const API="https://bvmumhpylsllbvhvymns.supabase.co/functions/v1/hakodate-trip-202611",f=document.getElementById("f"),p=document.getElementById("p"),m=document.getElementById("m"),b=document.getElementById("b");
 f.addEventListener("submit",async e=>{e.preventDefault();b.disabled=true;m.textContent="確認中…";try{
  const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"login",passphrase:p.value.trim()})});
  if(!r.ok){m.textContent=r.status===401?"合言葉が違います。":"接続できませんでした。";b.disabled=false;p.select();return}
  const j=await r.json();sessionStorage.setItem("hk:token",j.token);document.open();document.write(j.html);document.close();
 }catch(err){m.textContent="接続できませんでした。もう一度お試しください。";b.disabled=false}});
+})();
 </script></body></html>
