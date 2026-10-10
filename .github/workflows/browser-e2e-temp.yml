@@ -22,6 +22,9 @@ jobs:
           s=Path("index.html").read_text()
           mock=r'''<script>
           window.__requests=[];
+          window.__errors=[];
+          window.addEventListener("error",e=>window.__errors.push("error: "+e.message+" @"+e.lineno+":"+e.colno));
+          window.addEventListener("unhandledrejection",e=>window.__errors.push("rejection: "+String(e.reason&&e.reason.stack||e.reason)));
           window.fetch=async function(url,opts={}){
             const body=JSON.parse(opts.body||"{}");
             window.__requests.push({url,body,headers:opts.headers||{}});
@@ -51,7 +54,7 @@ jobs:
               if(!document.body.textContent.includes("CT-1344256")) throw Error("agreed taxi reservation missing");
               if(!document.body.textContent.includes("ANA NH555")) throw Error("NH555 missing");
               const initialRows=document.querySelectorAll("#sched .row").length;
-              if(initialRows<6) throw Error("initial itinerary did not render");
+              if(initialRows<6) throw Error("initial itinerary did not render; browser errors="+JSON.stringify(window.__errors));
 
               document.getElementById("pass").value="TEST-日本語";
               document.getElementById("gateForm").requestSubmit();
